@@ -85,3 +85,17 @@ Then open http://localhost:5173 in your browser.
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+
+## PayFac Lead Engine
+
+A second view (sidebar → **PayFac Lead Engine**) turns the council into a predictive content engine for PayFac-as-a-Service prospecting.
+
+1. **Ingest** – paste a CSV export from Apollo, HubSpot, ZoomInfo or Grata (common column names are auto-mapped; see `samples/sample_leads.csv`).
+2. **Predict** – `backend/leads.py` estimates each lead's Gross Processing Volume (from reported GPV → customer count → revenue → headcount, with a confidence label), models the incremental net payment yield vs. their current ISO/referral setup, and computes EBITDA added, EV uplift at 10x and the PayFacaaS revenue share. Leads get a 0–100 fit score (GPV band, vertical, payment upside, ownership, buying signals), an A–D tier, a persona-specific message angle, and the next-best content asset for their engagement stage.
+3. **Generate** – `backend/content.py` turns the scored lead into a brief with guardrails (estimates framed as estimates, no invented case studies, opt-out line) and runs the normal 3-stage council: every model drafts, drafts are peer-ranked anonymously, the chairman produces the final asset. Results are saved to `data/content/`.
+
+Asset types: `cold_email`, `linkedin_message`, `follow_up_sequence`, `yield_audit_one_pager`, `board_memo`.
+
+API: `POST /api/leads/score`, `POST /api/leads/content`, `GET /api/leads/options`, `GET /api/content`, `GET /api/content/{id}`.
+
+Tests: `uv run python -m unittest discover -s tests -t .`

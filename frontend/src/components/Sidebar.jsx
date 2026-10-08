@@ -6,6 +6,8 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onOpenLeadEngine,
+  isLeadEngineActive,
 }) {
   return (
     <div className="sidebar">
@@ -13,6 +15,12 @@ export default function Sidebar({
         <h1>LLM Council</h1>
         <button className="new-conversation-btn" onClick={onNewConversation}>
           + New Conversation
+        </button>
+        <button
+          className={`lead-engine-btn ${isLeadEngineActive ? 'active' : ''}`}
+          onClick={onOpenLeadEngine}
+        >
+          PayFac Lead Engine
         </button>
       </div>
 
@@ -24,7 +32,7 @@ export default function Sidebar({
             <div
               key={conv.id}
               className={`conversation-item ${
-                conv.id === currentConversationId ? 'active' : ''
+                conv.id === currentConversationId && !isLeadEngineActive ? 'active' : ''
               }`}
               onClick={() => onSelectConversation(conv.id)}
             >
