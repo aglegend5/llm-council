@@ -112,4 +112,94 @@ export const api = {
       }
     }
   },
+
+  /**
+   * Get the options the lead engine understands (asset types, verticals, etc.).
+   */
+  async getLeadOptions() {
+    const response = await fetch(`${API_BASE}/api/leads/options`);
+    if (!response.ok) {
+      throw new Error('Failed to load lead options');
+    }
+    return response.json();
+  },
+
+  /**
+   * Score leads from a lead-platform export.
+   * @param {{leads?: object[], csv_text?: string}} payload
+   */
+  async scoreLeads(payload) {
+    const response = await fetch(`${API_BASE}/api/leads/score`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.detail || 'Failed to score leads');
+    }
+    return response.json();
+  },
+
+  /**
+   * Pull companies and their primary contacts from HubSpot, scored.
+   * @param {{limit?: number, lifecycle_stage?: string}} payload
+   */
+  async importHubSpotLeads(payload) {
+    const response = await fetch(`${API_BASE}/api/leads/hubspot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.detail || 'Failed to import from HubSpot');
+    }
+    return response.json();
+  },
+
+  /**
+   * Run the council to generate an outreach asset for one lead.
+   * @param {{lead: object, asset_type?: string, extra_instructions?: string}} payload
+   */
+  async generateContent(payload) {
+    const response = await fetch(`${API_BASE}/api/leads/content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.detail || 'Failed to generate content');
+    }
+    return response.json();
+  },
+
+  /**
+   * List previously generated content.
+   */
+  async listContent() {
+    const response = await fetch(`${API_BASE}/api/content`);
+    if (!response.ok) {
+      throw new Error('Failed to list content');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get one generated content record with all council stages.
+   */
+  async getContent(contentId) {
+    const response = await fetch(`${API_BASE}/api/content/${contentId}`);
+    if (!response.ok) {
+      throw new Error('Failed to get content');
+    }
+    return response.json();
+  },
 };

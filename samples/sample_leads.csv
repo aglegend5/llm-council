@@ -1,0 +1,5 @@
+Company Name,Website,Industry,Keywords,# Employees,Annual Revenue,customers,Technologies,Ownership Type,First Name,Last Name,Title,Lead Status,Buying Signals
+Summit Rental Systems,summitrental.example,Computer Software,equipment rental software for construction rental yards,85,$14M,220,TSYS;Salesforce,Founder-owned,Dana,Reyes,CEO,new,hiring_payments;succession_planning
+PartyGrid,partygrid.example,Computer Software,event and party rental management,40,$6M,,Clover;Stripe,Bootstrapped,Sam,Lee,CFO,opened,processor_contract_renewal
+FieldPro Dispatch,fieldpro.example,Computer Software,field service dispatch and HVAC technician scheduling,120,$22M,,Stripe,Lower middle market PE,Jordan,Kim,Operating Partner,replied,acquisition_activity
+TinyTools,tinytools.example,Computer Software,tool rental app,8,$900K,,Square,Venture backed,Alex,Park,CTO,new,

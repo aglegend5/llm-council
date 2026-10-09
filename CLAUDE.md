@@ -40,6 +40,18 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - Assistant messages contain: `{role, stage1, stage2, stage3}`
 - Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
 
+**`leads.py`** - Predictive lead scoring (pure, deterministic, no LLM calls)
+- `parse_leads_csv()`: normalizes lead-platform CSV exports via `CSV_COLUMN_MAP`
+- `score_lead()` / `score_leads()`: vertical + payment-model detection, GPV estimate with method/confidence, economics, 0-100 score, A-D tier, persona angle, next-best asset
+- `model_economics()` reproduces the thesis tier table (75/70/65 bps; 25/20/15% partner share; 10x EV) — covered by `tests/test_leads.py`
+
+**`hubspot.py`** - HubSpot CRM import (private app token `HUBSPOT_ACCESS_TOKEN`)
+- `fetch_leads()`: companies search (newest first) → v4 batch associations → contacts batch read
+- `company_to_lead()`: pure mapping; optional `payfac_*` custom company properties override estimates
+- Lead kinds (`leads.detect_lead_kind`): `platform`, `channel_partner` (tier P, partner asset), `payments_provider` (tier X, no content)
+
+**`content.py`** - Wraps a scored lead in a content brief + guardrails and calls `run_full_council()`; saves records to `data/content/`
+
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
 - POST `/api/conversations/{id}/message` returns metadata in addition to stages
@@ -67,6 +79,10 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - Shows "Extracted Ranking" below each evaluation so users can validate parsing
 - Aggregate rankings shown with average position and vote count
 - Explanatory text clarifies that boldface model names are for readability only
+
+**`components/LeadEngine.jsx`**
+- Lead Engine view (toggled from Sidebar): CSV paste → ranked table → lead detail → council generation → content library
+- Reuses Stage1/2/3 components to show the drafts, peer rankings and final asset
 
 **`components/Stage3.jsx`**
 - Final synthesized answer from chairman

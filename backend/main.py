@@ -4,12 +4,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
 
 from . import storage
+from . import leads
+from . import content
+from . import hubspot
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 
 app = FastAPI(title="LLM Council API")
@@ -40,6 +43,25 @@ class ConversationMetadata(BaseModel):
     created_at: str
     title: str
     message_count: int
+
+
+class ScoreLeadsRequest(BaseModel):
+    """Request to score leads from a lead-generation platform."""
+    leads: List[Dict[str, Any]] = []
+    csv_text: Optional[str] = None
+
+
+class HubSpotImportRequest(BaseModel):
+    """Request to pull leads from HubSpot."""
+    limit: int = 100
+    lifecycle_stage: Optional[str] = None
+
+
+class GenerateContentRequest(BaseModel):
+    """Request to generate outreach content for one lead."""
+    lead: Dict[str, Any]
+    asset_type: Optional[str] = None
+    extra_instructions: str = ""
 
 
 class Conversation(BaseModel):
@@ -192,6 +214,66 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             "Connection": "keep-alive",
         }
     )
+
+
+@app.get("/api/leads/options")
+async def lead_options():
+    """Verticals, payment models, signals and asset types the lead engine understands."""
+    return {
+        "verticals": {k: v["label"] for k, v in leads.VERTICALS.items()},
+        "payment_models": list(leads.CURRENT_YIELD_BPS.keys()),
+        "ownership": list(leads.OWNERSHIP_SCORES.keys()),
+        "signals": list(leads.SIGNAL_WEIGHTS.keys()),
+        "engagement_stages": list(leads.NEXT_BEST_CONTENT.keys()),
+        "asset_types": leads.ASSET_TYPES,
+    }
+
+
+@app.post("/api/leads/score")
+async def score_leads(request: ScoreLeadsRequest):
+    """Score leads (JSON list and/or pasted CSV export) and return them ranked."""
+    all_leads = list(request.leads)
+    if request.csv_text:
+        all_leads.extend(leads.parse_leads_csv(request.csv_text))
+    if not all_leads:
+        raise HTTPException(status_code=400, detail="No leads provided")
+    return {"leads": leads.score_leads(all_leads)}
+
+
+@app.post("/api/leads/hubspot")
+async def import_hubspot_leads(request: HubSpotImportRequest):
+    """Pull companies + primary contacts from HubSpot and return them scored."""
+    try:
+        hubspot_leads = await hubspot.fetch_leads(request.limit, request.lifecycle_stage)
+    except hubspot.HubSpotError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"leads": leads.score_leads(hubspot_leads)}
+
+
+@app.post("/api/leads/content")
+async def generate_lead_content(request: GenerateContentRequest):
+    """Run the council to produce an outreach asset for one lead."""
+    try:
+        return await content.generate_content(
+            request.lead, request.asset_type, request.extra_instructions
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/content")
+async def list_generated_content():
+    """List previously generated content assets."""
+    return content.list_content()
+
+
+@app.get("/api/content/{content_id}")
+async def get_generated_content(content_id: str):
+    """Get one generated content asset with all council stages."""
+    record = content.get_content(content_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+    return record
 
 
 if __name__ == "__main__":

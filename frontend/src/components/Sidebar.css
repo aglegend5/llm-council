@@ -36,6 +36,24 @@
   border-color: #357abd;
 }
 
+.lead-engine-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #4a90e2;
+  border-radius: 6px;
+  color: #4a90e2;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lead-engine-btn:hover,
+.lead-engine-btn.active {
+  background: #e8f0fe;
+}
+
 .conversation-list {
   flex: 1;
   overflow-y: auto;

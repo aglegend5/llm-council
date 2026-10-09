@@ -85,3 +85,34 @@ Then open http://localhost:5173 in your browser.
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+
+## PayFac Lead Engine
+
+A second view (sidebar → **PayFac Lead Engine**) turns the council into a predictive content engine for PayFac-as-a-Service prospecting.
+
+1. **Ingest** – paste a CSV export from Apollo, HubSpot, ZoomInfo or Grata (common column names are auto-mapped; see `samples/sample_leads.csv`).
+2. **Predict** – `backend/leads.py` estimates each lead's Gross Processing Volume (from reported GPV → customer count → revenue → headcount, with a confidence label), models the incremental net payment yield vs. their current ISO/referral setup, and computes EBITDA added, EV uplift at 10x and the PayFacaaS revenue share. Leads get a 0–100 fit score (GPV band, vertical, payment upside, ownership, buying signals), an A–D tier, a persona-specific message angle, and the next-best content asset for their engagement stage.
+3. **Generate** – `backend/content.py` turns the scored lead into a brief with guardrails (estimates framed as estimates, no invented case studies, opt-out line) and runs the normal 3-stage council: every model drafts, drafts are peer-ranked anonymously, the chairman produces the final asset. Results are saved to `data/content/`.
+
+### Pulling leads from HubSpot
+
+Click **Import from HubSpot** in the Lead Engine. It needs a HubSpot private app token in `.env`:
+
+```bash
+HUBSPOT_ACCESS_TOKEN=pat-na1-...
+```
+
+Create it in HubSpot under Settings → Integrations → Private Apps with the `crm.objects.companies.read` and `crm.objects.contacts.read` scopes. The import pulls the newest 200 companies plus each one's first associated contact (name, title, lead status → engagement stage) and links every row back to its HubSpot record.
+
+Leads are sorted into:
+- **Platforms** – scored and tiered A–D. Records with no industry, description, headcount or revenue are flagged **needs data** instead of being given a fake GPV.
+- **Referral partners (tier P)** – CPA, M&A advisory, broker and capital firms. They get a `partner_referral_intro` asset instead of a platform pitch.
+- **Payments providers (tier X)** – processors/PayFacs/payroll (Finix, NMI, Fortis, etc.). Never pitched.
+
+For hard numbers instead of estimates, add these optional custom company properties in HubSpot: `payfac_gpv`, `payfac_num_customers`, `payfac_current_processor`, `payfac_ownership`, `payfac_signals`, `payfac_vertical`.
+
+Asset types: `cold_email`, `linkedin_message`, `follow_up_sequence`, `yield_audit_one_pager`, `board_memo`, `partner_referral_intro`.
+
+API: `POST /api/leads/score`, `POST /api/leads/hubspot`, `POST /api/leads/content`, `GET /api/leads/options`, `GET /api/content`, `GET /api/content/{id}`.
+
+Tests: `uv run python -m unittest discover -s tests -t .`
