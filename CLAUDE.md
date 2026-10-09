@@ -45,6 +45,11 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - `score_lead()` / `score_leads()`: vertical + payment-model detection, GPV estimate with method/confidence, economics, 0-100 score, A-D tier, persona angle, next-best asset
 - `model_economics()` reproduces the thesis tier table (75/70/65 bps; 25/20/15% partner share; 10x EV) — covered by `tests/test_leads.py`
 
+**`hubspot.py`** - HubSpot CRM import (private app token `HUBSPOT_ACCESS_TOKEN`)
+- `fetch_leads()`: companies search (newest first) → v4 batch associations → contacts batch read
+- `company_to_lead()`: pure mapping; optional `payfac_*` custom company properties override estimates
+- Lead kinds (`leads.detect_lead_kind`): `platform`, `channel_partner` (tier P, partner asset), `payments_provider` (tier X, no content)
+
 **`content.py`** - Wraps a scored lead in a content brief + guardrails and calls `run_full_council()`; saves records to `data/content/`
 
 **`main.py`**

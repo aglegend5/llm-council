@@ -127,6 +127,22 @@
 .tier-B { background: #4a90e2; }
 .tier-C { background: #f0a020; }
 .tier-D { background: #999; }
+.tier-P { background: #8e5bd0; }
+.tier-X { background: #c0392b; }
+
+.hubspot-link {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #ff7a59;
+}
+
+.needs-data {
+  font-size: 12px;
+  color: #b26a00;
+  background: #fff4e0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 
 .muted {
   color: #888;

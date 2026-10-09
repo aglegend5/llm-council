@@ -12,6 +12,7 @@ import asyncio
 from . import storage
 from . import leads
 from . import content
+from . import hubspot
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 
 app = FastAPI(title="LLM Council API")
@@ -48,6 +49,12 @@ class ScoreLeadsRequest(BaseModel):
     """Request to score leads from a lead-generation platform."""
     leads: List[Dict[str, Any]] = []
     csv_text: Optional[str] = None
+
+
+class HubSpotImportRequest(BaseModel):
+    """Request to pull leads from HubSpot."""
+    limit: int = 100
+    lifecycle_stage: Optional[str] = None
 
 
 class GenerateContentRequest(BaseModel):
@@ -231,6 +238,16 @@ async def score_leads(request: ScoreLeadsRequest):
     if not all_leads:
         raise HTTPException(status_code=400, detail="No leads provided")
     return {"leads": leads.score_leads(all_leads)}
+
+
+@app.post("/api/leads/hubspot")
+async def import_hubspot_leads(request: HubSpotImportRequest):
+    """Pull companies + primary contacts from HubSpot and return them scored."""
+    try:
+        hubspot_leads = await hubspot.fetch_leads(request.limit, request.lifecycle_stage)
+    except hubspot.HubSpotError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"leads": leads.score_leads(hubspot_leads)}
 
 
 @app.post("/api/leads/content")

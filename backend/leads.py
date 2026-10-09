@@ -78,9 +78,26 @@ VERTICALS: Dict[str, Dict[str, Any]] = {
 VERTICAL_KEYWORDS = [
     ("equipment_rental", ["equipment", "machinery", "heavy", "construction", "tool rental", "crane", "scaffold", "dumpster", "rental yard", "rental software"]),
     ("event_rental", ["event", "party", "tent", "wedding", "av rental", "staging"]),
-    ("field_service", ["field service", "hvac", "plumbing", "maintenance", "dispatch", "technician", "pest", "landscap"]),
+    ("field_service", ["field service", "fieldserv", "hvac", "plumbing", "maintenance", "dispatch", "technician", "pest", "landscap", "moving", "hauler", "waste", "junk removal", "solar"]),
     ("isp_telecom", ["isp", "internet service", "broadband", "telecom", "wireless", "fiber"]),
     ("property_management", ["property", "storage", "real estate", "leasing", "hoa"]),
+    # Generic fallback so "rental management software" etc. still lands in a rental vertical
+    ("equipment_rental", ["rental"]),
+]
+
+# Firms that refer platforms rather than process payments themselves
+# (accountants, M&A advisors, brokers, capital providers)
+CHANNEL_PARTNER_KEYWORDS = [
+    "cpa", "accounting", "accountant", "audit", "capital", "acquisition", "advisor",
+    "advisory", "m&a", "broker", "investment", "wealth", "equity", "partners", "venture",
+    "exit", "merger", "securities", "banker", "investor", "endowment", "corporate finance",
+    "business sales", "closers",
+]
+
+# Payment processors / PayFacs / payroll: competitors or infrastructure, never pitch targets
+PAYMENTS_PROVIDER_KEYWORDS = [
+    "finix", "fortispay", "nmi.com", "xplorpay", "fullsteam", "ingenico", "paychex", "gusto",
+    "stripe.com", "adyen", "payrix", "worldpay", "fiserv", "tsys", "heartland", "paysafe",
 ]
 
 # Net bps the platform currently keeps, by payment model
@@ -139,6 +156,7 @@ ASSET_TYPES = {
     "follow_up_sequence": "a 3-touch follow-up email sequence spaced over 10 business days, each under 110 words with its own subject line",
     "yield_audit_one_pager": "a one-page 'Hidden Payment Yield Audit' summary in markdown (headline, current state, opportunity math, how it works, deal structure, next step)",
     "board_memo": "a concise board-level investment memo (under 500 words) presenting the Capital + PayFac Engine thesis",
+    "partner_referral_intro": "a short email (under 150 words) to an accounting or M&A advisory firm inviting them to refer vertical SaaS clients for a free payment-yield audit, proposing a call to discuss a referral arrangement",
 }
 
 
@@ -180,6 +198,27 @@ def detect_vertical(lead: Dict[str, Any]) -> str:
         if any(word in haystack for word in words):
             return key
     return "other_vertical_saas"
+
+
+LEAD_KINDS = ("platform", "channel_partner", "payments_provider")
+
+
+def detect_lead_kind(lead: Dict[str, Any]) -> str:
+    """'platform' (software company with GPV), 'channel_partner' (refers platforms) or 'payments_provider'."""
+    explicit = (lead.get("lead_kind") or "").strip().lower()
+    if explicit in LEAD_KINDS:
+        return explicit
+    if lead.get("vertical") or lead.get("gpv") or lead.get("num_customers"):
+        return "platform"
+    haystack = " ".join(
+        str(lead.get(k) or "") for k in ("company_name", "website", "industry")
+    ).lower()
+    # Substring match: lead-platform domains run words together (e.g. walzgroupcpa.com)
+    if any(word in haystack for word in PAYMENTS_PROVIDER_KEYWORDS):
+        return "payments_provider"
+    if any(word in haystack for word in CHANNEL_PARTNER_KEYWORDS):
+        return "channel_partner"
+    return "platform"
 
 
 def detect_payment_model(lead: Dict[str, Any]) -> str:
@@ -300,6 +339,10 @@ def _signals(lead: Dict[str, Any]) -> List[str]:
 
 def score_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     """Score one lead and return its predicted economics, fit score, tier and content plan."""
+    kind = detect_lead_kind(lead)
+    if kind != "platform":
+        return _score_non_platform(lead, kind)
+
     vertical = detect_vertical(lead)
     payment_model = detect_payment_model(lead)
     gpv_estimate = estimate_gpv(lead, vertical)
@@ -337,6 +380,8 @@ def score_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "lead": lead,
+        "lead_kind": "platform",
+        "needs_enrichment": gpv_estimate["confidence"] == "none",
         "company_name": lead.get("company_name") or "Unknown company",
         "vertical": vertical,
         "vertical_label": VERTICALS[vertical]["label"],
@@ -357,6 +402,39 @@ def score_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _score_non_platform(lead: Dict[str, Any], kind: str) -> Dict[str, Any]:
+    """Referral partners get partner content; payments providers are excluded from outreach."""
+    stage = (lead.get("engagement_stage") or "new").strip().lower()
+    if kind == "payments_provider":
+        label, tier, asset = "Payments Provider (competitor / infrastructure)", "X", None
+        angle = "not an outreach target"
+    else:
+        label, tier, asset = "Channel / Referral Partner", "P", "partner_referral_intro"
+        angle = "a referral relationship that brings their vertical SaaS clients a free payment-yield audit and a new revenue line"
+    return {
+        "lead": lead,
+        "lead_kind": kind,
+        "needs_enrichment": False,
+        "company_name": lead.get("company_name") or "Unknown company",
+        "vertical": kind,
+        "vertical_label": label,
+        "payment_model": "n/a",
+        "ownership": (lead.get("ownership") or "unknown").strip().lower(),
+        "signals": _signals(lead),
+        "gpv_estimate": 0,
+        "gpv_method": "not a platform: no GPV of its own",
+        "gpv_confidence": "n/a",
+        "in_target_band": False,
+        "economics": model_economics(0, "none"),
+        "score": 0,
+        "score_breakdown": {},
+        "tier": tier,
+        "persona_angle": angle,
+        "engagement_stage": stage,
+        "next_best_asset": asset,
+    }
+
+
 def persona_angle(lead: Dict[str, Any], ownership: str) -> str:
     """Pick the message angle most likely to resonate with this contact."""
     title = (lead.get("contact_title") or "").lower()
@@ -372,7 +450,14 @@ def persona_angle(lead: Dict[str, Any], ownership: str) -> str:
 def score_leads(leads: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Score many leads and return them ranked best-first."""
     scored = [score_lead(lead) for lead in leads]
-    scored.sort(key=lambda s: (s["score"], s["economics"]["net_ebitda_added"]), reverse=True)
+    # Platforms with data first, then platforms needing enrichment, then partners, then providers
+    scored.sort(key=lambda s: (
+        s["lead_kind"] == "platform",
+        s["lead_kind"] == "channel_partner",
+        not s["needs_enrichment"],
+        s["score"],
+        s["economics"]["net_ebitda_added"],
+    ), reverse=True)
     return scored
 
 

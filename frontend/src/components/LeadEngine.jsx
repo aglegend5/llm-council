@@ -53,6 +53,20 @@ export default function LeadEngine() {
     setIsScoring(false);
   };
 
+  const handleHubSpotImport = async () => {
+    setError('');
+    setIsScoring(true);
+    try {
+      const data = await api.importHubSpotLeads({ limit: 200 });
+      setScored(data.leads);
+      setSelected(null);
+      setResult(null);
+    } catch (e) {
+      setError(e.message);
+    }
+    setIsScoring(false);
+  };
+
   const handleSelect = (lead) => {
     setSelected(lead);
     setAssetType(lead.next_best_asset);
@@ -116,6 +130,9 @@ export default function LeadEngine() {
             >
               {isScoring ? 'Scoring...' : 'Score leads'}
             </button>
+            <button className="secondary-btn" onClick={handleHubSpotImport} disabled={isScoring}>
+              Import from HubSpot
+            </button>
           </div>
         </div>
 
@@ -142,14 +159,37 @@ export default function LeadEngine() {
                   onClick={() => handleSelect(s)}
                 >
                   <td><span className={`tier tier-${s.tier}`}>{s.tier}</span></td>
-                  <td>{s.company_name}</td>
+                  <td>
+                    {s.company_name}
+                    {s.lead.hubspot_url && (
+                      <a
+                        className="hubspot-link"
+                        href={s.lead.hubspot_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        HubSpot
+                      </a>
+                    )}
+                  </td>
                   <td>{s.vertical_label}</td>
                   <td title={s.gpv_method}>
-                    {money(s.gpv_estimate)} <span className="muted">({s.gpv_confidence})</span>
+                    {s.lead_kind === 'payments_provider' ? (
+                      <span className="muted">payments provider</span>
+                    ) : s.lead_kind === 'channel_partner' ? (
+                      <span className="muted">referral partner</span>
+                    ) : s.needs_enrichment ? (
+                      <span className="needs-data">needs data</span>
+                    ) : (
+                      <>
+                        {money(s.gpv_estimate)} <span className="muted">({s.gpv_confidence})</span>
+                      </>
+                    )}
                   </td>
                   <td>{money(s.economics.net_ebitda_added)}/yr</td>
                   <td>{s.score}</td>
-                  <td>{s.next_best_asset.replaceAll('_', ' ')}</td>
+                  <td>{s.next_best_asset ? s.next_best_asset.replaceAll('_', ' ') : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -170,23 +210,29 @@ export default function LeadEngine() {
             <p className="muted">GPV basis: {selected.gpv_method}</p>
             <p className="muted">Angle: {selected.persona_angle}</p>
 
-            <div className="generate-controls">
-              <select value={assetType} onChange={(e) => setAssetType(e.target.value)}>
-                {Object.keys(assetTypes).map((key) => (
-                  <option key={key} value={key}>
-                    {key.replaceAll('_', ' ')}{key === selected.next_best_asset ? ' (recommended)' : ''}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={extraInstructions}
-                onChange={(e) => setExtraInstructions(e.target.value)}
-                placeholder="Optional extra instructions (tone, event mention, etc.)"
-              />
-              <button className="primary-btn" onClick={handleGenerate} disabled={isGenerating}>
-                {isGenerating ? 'Council drafting...' : 'Generate with council'}
-              </button>
-            </div>
+            {selected.lead_kind === 'payments_provider' ? (
+              <p className="muted">
+                Payments providers are competitors or infrastructure partners, so no outreach content is generated.
+              </p>
+            ) : (
+              <div className="generate-controls">
+                <select value={assetType} onChange={(e) => setAssetType(e.target.value)}>
+                  {Object.keys(assetTypes).map((key) => (
+                    <option key={key} value={key}>
+                      {key.replaceAll('_', ' ')}{key === selected.next_best_asset ? ' (recommended)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={extraInstructions}
+                  onChange={(e) => setExtraInstructions(e.target.value)}
+                  placeholder="Optional extra instructions (tone, event mention, etc.)"
+                />
+                <button className="primary-btn" onClick={handleGenerate} disabled={isGenerating}>
+                  {isGenerating ? 'Council drafting...' : 'Generate with council'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

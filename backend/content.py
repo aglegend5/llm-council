@@ -48,6 +48,15 @@ def lead_analysis_text(scored: Dict[str, Any]) -> str:
     """Render the scored lead as the analysis block the council writes from."""
     lead = scored["lead"]
     econ = scored["economics"]
+    if scored["lead_kind"] == "channel_partner":
+        return "\n".join([
+            f"Company: {scored['company_name']}",
+            f"Website: {lead.get('website', 'n/a')}",
+            "Type: channel / referral partner (accounting, advisory or M&A firm). Not a payments platform itself.",
+            f"Contact: {lead.get('contact_name', 'n/a')} ({lead.get('contact_title', 'title unknown')})",
+            f"Message angle: {scored['persona_angle']}",
+            "Illustrative economics for one of their clients: a vertical SaaS platform at $150M GPV moving from a referral model to PayFac could add roughly $840K/yr of EBITDA (estimate; varies by client).",
+        ])
     lines = [
         f"Company: {scored['company_name']}",
         f"Website: {lead.get('website', 'n/a')}",
@@ -72,7 +81,9 @@ def lead_analysis_text(scored: Dict[str, Any]) -> str:
 def build_content_brief(scored: Dict[str, Any], asset_type: str, extra_instructions: str = "") -> str:
     """Build the full prompt the council members draft from."""
     asset_description = ASSET_TYPES[asset_type]
-    pain = VERTICALS[scored["vertical"]]["pain"]
+    pain = VERTICALS.get(scored["vertical"], {}).get(
+        "pain", "low payment yield on referral processing deals and no in-house FinTech team"
+    )
     brief = f"""You are a B2B FinTech copywriter producing outreach content for Solvent Dynamics.
 
 ABOUT SOLVENT DYNAMICS:
@@ -98,6 +109,8 @@ async def generate_content(
 ) -> Dict[str, Any]:
     """Score a lead, run the council on its content brief, and save the result."""
     scored = score_lead(lead)
+    if scored["lead_kind"] == "payments_provider":
+        raise ValueError(f"{scored['company_name']} is a payments provider, not an outreach target.")
     asset_type = asset_type or scored["next_best_asset"]
     if asset_type not in ASSET_TYPES:
         raise ValueError(f"Unknown asset_type '{asset_type}'. Choose one of: {', '.join(ASSET_TYPES)}")

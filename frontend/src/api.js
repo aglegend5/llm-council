@@ -144,6 +144,25 @@ export const api = {
   },
 
   /**
+   * Pull companies and their primary contacts from HubSpot, scored.
+   * @param {{limit?: number, lifecycle_stage?: string}} payload
+   */
+  async importHubSpotLeads(payload) {
+    const response = await fetch(`${API_BASE}/api/leads/hubspot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.detail || 'Failed to import from HubSpot');
+    }
+    return response.json();
+  },
+
+  /**
    * Run the council to generate an outreach asset for one lead.
    * @param {{lead: object, asset_type?: string, extra_instructions?: string}} payload
    */
